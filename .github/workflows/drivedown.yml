@@ -3,7 +3,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   watch:
     types: started
 
@@ -28,8 +28,8 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/download
           cd $GITHUB_WORKSPACE
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          mkdir -p $GITHUB_WORKSPACE/mounts/
-          rclone mount onedrive:/ $GITHUB_WORKSPACE/mounts/
+#          mkdir -p $GITHUB_WORKSPACE/mounts/
+#          rclone mount onedrive:/ $GITHUB_WORKSPACE/mounts/
       - name: SSH connection to Actions
         uses: P3TERX/debugger-action@main
 #        if: env.SSH_ACTIONS == 'true' || contains(github.event.action, 'ssh')
