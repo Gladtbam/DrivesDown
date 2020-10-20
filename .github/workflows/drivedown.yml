@@ -31,6 +31,7 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/download
       - name: Download files
         run: |
+          chmod 777 files.sh
           ./files.sh
       - name: SSH connection to Actions
         uses: P3TERX/debugger-action@main
