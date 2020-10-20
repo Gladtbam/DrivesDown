@@ -3,7 +3,10 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+    paths:
+        - "files.sh"
   watch:
     types: started
 
@@ -13,6 +16,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
 
     steps:
       - uses: actions/checkout@v2
@@ -30,6 +34,7 @@ jobs:
           mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
           mkdir -p $GITHUB_WORKSPACE/download
       - name: Download files
+        if: env.SSH_ACTIONS == "false"
         run: |
           chmod 777 files.sh
           ./files.sh
