@@ -1,0 +1,1 @@
+rclone copy onedrive:/软件/cadence/Linux虚拟机/EDA.part01.rar $GITHUB_WORKSPACE/download

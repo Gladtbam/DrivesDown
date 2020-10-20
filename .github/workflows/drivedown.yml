@@ -8,7 +8,7 @@ on:
     types: started
 
 env:
-    SSH_ACTIONS: true
+    SSH_ACTIONS: false
 
 jobs:
   build:
@@ -29,7 +29,9 @@ jobs:
           chmod 777 /home/runner/.config/rclone/
           mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
           mkdir -p $GITHUB_WORKSPACE/download
-          cd $GITHUB_WORKSPACE/download
+      - name: Download files
+        run: |
+          ./files.sh
       - name: SSH connection to Actions
         uses: P3TERX/debugger-action@main
         if: env.SSH_ACTIONS == 'true'
