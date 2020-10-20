@@ -1,0 +1,39 @@
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+      - name: Upload config
+        run: |
+          sed -i 's/your_token/${{ secrets.ACCESS_TOKEN }}/g' $GITHUB_WORKSPACE/rclone.conf
+          sed -i 's/your_id/${{ secrets.DRIVE_ID }}/g' $GITHUB_WORKSPACE/rclone.conf
+      - name: Set Rclone
+        run: |
+          mkdir -p /home/runner/.config/rclone/
+          chmod 777 /home/runner/.config/rclone/
+          mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
+          mkdir -p $GITHUB_WORKSPACE/download
+          cd $GITHUB_WORKSPACE
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          mkdir -p $GITHUB_WORKSPACE/mounts/
+          rclone mount onedrive:/ $GITHUB_WORKSPACE/mounts/
+      - name: SSH connection to Actions
+        uses: P3TERX/debugger-action@main
+#        if: env.SSH_ACTIONS == 'true' || contains(github.event.action, 'ssh')
+      - name: Upload firmware to cowtransfer
+        run: |
+          curl -fsSL git.io/file-transfer | sh
+          ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
+           echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
+           echo "::set-output name=url::$(cat cowtransfer.log | grep https | cut -f3 -d" ")"
