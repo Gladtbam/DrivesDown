@@ -26,16 +26,13 @@ jobs:
           chmod 777 /home/runner/.config/rclone/
           mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
           mkdir -p $GITHUB_WORKSPACE/download
-          cd $GITHUB_WORKSPACE
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-#          mkdir -p $GITHUB_WORKSPACE/mounts/
-#          rclone mount onedrive:/ $GITHUB_WORKSPACE/mounts/
+          cd $GITHUB_WORKSPACE/download
       - name: SSH connection to Actions
         uses: P3TERX/debugger-action@main
-#        if: env.SSH_ACTIONS == 'true' || contains(github.event.action, 'ssh')
+        if: env.SSH_ACTIONS == 'true'
       - name: Upload firmware to cowtransfer
         run: |
           curl -fsSL git.io/file-transfer | sh
-          ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
+          ./transfer cow --block 2621440 -s -p 64 --no-progress $GITHUB_WORKSPACE/download 2>&1 | tee cowtransfer.log
            echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
            echo "::set-output name=url::$(cat cowtransfer.log | grep https | cut -f3 -d" ")"
