@@ -1,0 +1,48 @@
+
+name: DriveDown
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+        - "downfiles.sh"
+
+env:
+    SSH_ACTIONS: false
+    DOWNLOAD_ACTION: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - name: Install Rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+      - name: Set Rclone
+        run: |
+          echo "${{ secrets.RCLONE_CONF }}" > rclone.conf
+          mkdir -p /home/runner/.config/rclone/
+          chmod 777 /home/runner/.config/rclone/
+          mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
+          mkdir -p $GITHUB_WORKSPACE/download
+      - name: SSH connection to Actions
+        uses: P3TERX/ssh2actions@v1.0.0
+        if: env.SSH_ACTIONS == 'true'
+      - name: Download files
+        if: env.DOWNLOAD_ACTION == 'true'
+        run: |
+          cp downfiles.sh download/
+          cd download/
+          chmod 777 downfiles.sh
+          ./downfiles.sh
+      - name: Upload Files to cowtransfer
+        run: |
+          curl -fsSL git.io/file-transfer | sh
+          ./transfer cow --block 2621440 -s -p 64 --no-progress $GITHUB_WORKSPACE/download 2>&1 | tee cowtransfer.log
+           echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
+           echo "::set-output name=url::$(cat cowtransfer.log | grep https | cut -f3 -d" ")"

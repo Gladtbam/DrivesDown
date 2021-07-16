@@ -1,0 +1,111 @@
+
+name: DriveUp
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+        - "upfiles.sh"
+
+env:
+    SSH_ACTIONS: false
+    DOWNLOAD_ARIA2: true
+    DOWNLOAD: true
+    UPLOAD_COW: false
+
+jobs:
+  UPLOAD:
+    runs-on: ubuntu-18.04
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - name: Clear Space
+        run: |
+          sudo apt remove *CLI *android* ruby pypy nodejs
+          sudo apt autoremove
+          sudo rm -rf /usr/share/dotnet/ /usr/share/google-cloud-sdk/ /usr/share/php* /usr/lib/google-cloud-sdk/ /opt/ /usr/local/lib/android
+          sudo apt-get --purge remove
+          df -h $GITHUB_WORKSPACE
+      - uses: actions/checkout@v2.3.4
+      - name: Install Rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+      - name: Set Rclone
+        run: |
+          echo "${{ secrets.RCLONE_CONF }}" > rclone.conf
+          mkdir -p /home/runner/.config/rclone/
+          chmod 777 /home/runner/.config/rclone/
+          mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
+          mkdir -p $GITHUB_WORKSPACE/download
+      - name: Install Aria2
+        if: env.DOWNLOAD_ARIA2 == 'true'
+        run: |
+          sudo chmod a+x aria2.sh
+          sudo ./aria2.sh
+          sudo sed -i 's?dir=/root/downloads?dir=/home/runner/work/DrivesDown/DrivesDown/download?g' /root/.aria2c/aria2.conf
+          sudo sed -i 's/max-overall-upload-limit=2M/max-overall-upload-limit=10M/g' /root/.aria2c/aria2.conf
+          sudo sed -i 's/seed-time=0/seed-time=0/g' /root/.aria2c/aria2.conf
+          sudo sed -i 's/seed-ratio=1.0/#seed-ratio=0/g' /root/.aria2c/aria2.conf
+          sudo cp -r /root/.aria2c/ ~/.aria2c/
+          mkdir -p  /home/runner/.cache/aria2/ && mv $GITHUB_WORKSPACE/dht.dat /home/runner/.cache/aria2/
+          sudo chmod 660 ~/.aria2c/*
+          sudo service aria2 restart
+#      - name: Install Other
+#        run: |
+#          curl -sL https://git.io/cowtransfer | sh 
+#          sudo mv cowtransfer-uploader /usr/bin/
+      - name: SSH connection to Actions
+        uses: P3TERX/ssh2actions@v1.0.0
+        if: env.SSH_ACTIONS == 'true'
+        with:
+          mode: ngrok
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+          NGROK_REGION: ap
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Download files
+        if: env.DOWNLOAD == 'true'
+        run: |
+          cp upfiles.sh download/
+          cd download/
+          chmod 755 upfiles.sh
+          ./upfiles.sh
+      - name: Commit files
+        run: |
+          mv  /home/runner/.cache/aria2/dht.dat $GITHUB_WORKSPACE/
+          git config --local user.email "DHT@email.com"
+          git config --local user.name "DTHbot"
+          git add .
+          git commit -m "DHT.dat" -a
+      - name: GitHub Push
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Files to cowtransfer
+        if: env.UPLOAD_COW == 'true'
+        run: |
+          curl -fsSL git.io/file-transfer | sh
+          ./transfer cow --block 2621440 -s -p 64 --no-progress $GITHUB_WORKSPACE/download 2>&1 | tee cowtransfer.log
+           echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
+           echo "::set-output name=url::$(cat cowtransfer.log | grep https | cut -f3 -d" ")"
+
+  clear:
+    needs: UPLOAD
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - name: Run the Task
+        run: |
+          git config --global user.name "Clear Bot"
+          git config --global user.email "clearbot@email.com"
+          git checkout --orphan latest_branch
+          git add -A
+          git commit -am "Clear History"
+          git branch -D master
+          git branch -m master
+          git push -f origin master
