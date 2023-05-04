@@ -1,0 +1,104 @@
+
+name: DriveUp
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+        - "upfiles.sh"
+
+env:
+    SSH_ACTIONS: false
+    DOWNLOAD_ARIA2: true
+    DOWNLOAD: true
+    UPLOAD_COW: false
+
+jobs:
+  UPLOAD:
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - name: Init Env
+        run: |
+          docker rmi $(docker images -q)
+          #sudo apt remove --purge apache* mono* nginx* powershell go* nodejs* pypy* python* ruby* sqlcmd* mysql* postgresql* sqlite* mongodb* dotnet* aspnetcore*
+          #sudo apt autoremove
+          sudo rm -rf /usr/local/lib/android/ /etc/apache2/ /etc/default/mono-xsp4 /etc/nginx/ /opt/hostedtoolcache/ /usr/local/share/chrom* /usr/local/share/edge_driver /usr/local/share/gecko_driver /usr/share/java/selenium-server.jar /usr/local/share/powershell/ /usr/local/share/vcpkg /usr/share/miniconda /home/linuxbrew
+          sudo rm -rf $JAVA_HOME_8_X64 $JAVA_HOME_17_X64 $GRAALVM_11_ROOT
+          sudo rm -rf /usr/share/dotnet/ /usr/share/php* /opt/az
+          df -h $GITHUB_WORKSPACE
+      - uses: actions/checkout@main
+      - name: Set Rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+          echo "${{ secrets.RCLONE_CONF }}" > rclone.conf
+          mkdir -p /home/runner/.config/rclone/
+          chmod 777 /home/runner/.config/rclone/
+          mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
+      - name: Install Aria2
+        if: env.DOWNLOAD_ARIA2 == 'true'
+        run: |
+          sudo chmod a+x aria2.sh
+          sudo ./aria2.sh
+          sudo chown runner:docker -R /home/runner/.aria2/ && chmod 755 -R /home/runner/.aria2/
+          sudo chown runner:docker /home/runner/work/DrivesDown/DrivesDown/download/ && chmod 755 /home/runner/work/DrivesDown/DrivesDown/download/
+          sudo service aria2 restart
+#      - name: Install Other
+#        run: |
+#          curl -sL https://git.io/cowtransfer | sh 
+#          sudo mv cowtransfer-uploader /usr/bin/
+      - name: SSH connection to Actions
+        uses: P3TERX/ssh2actions@main
+        if: env.SSH_ACTIONS == 'true'
+        with:
+          mode: ngrok
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+          NGROK_REGION: ap
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Download files
+        if: env.DOWNLOAD == 'true'
+        run: |
+          cp upfiles.sh download/
+          cd download/
+          chmod 755 upfiles.sh
+          ./upfiles.sh
+      - name: Commit files
+        run: |
+          mv  /home/runner/.aria2/dht.dat $GITHUB_WORKSPACE/aria2_conf/
+          mv  /home/runner/.aria2/dht6.dat $GITHUB_WORKSPACE/aria2_conf/
+          git config --local user.email "DHT@email.com"
+          git config --local user.name "DTHbot"
+          git add .
+          git commit -m "DHT.dat" -a
+      - name: GitHub Push
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Config Secret
+        id: secret
+        run: |
+          #echo "delimiter=$(echo $RANDOM)" >> $GITHUB_ENV
+          sed -i 's/\"/\\\"/g' /home/runner/.config/rclone/rclone.conf
+          echo 'RCLONE_CONFIG<<EOF' >> $GITHUB_ENV
+          cat /home/runner/.config/rclone/rclone.conf >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
+      - name: Update Secret
+        uses: gliech/create-github-secret-action@v1.4.10
+        with:
+          name: RCLONE_CONF
+          value: ${{ env.RCLONE_CONFIG }}
+          pa_token: ${{ secrets.PA_TOKEN }}
+      - name: Upload Files to cowtransfer
+        if: env.UPLOAD_COW == 'true'
+        run: |
+          curl -fsSL git.io/file-transfer | sh
+          ./transfer cow --block 2621440 -s -p 64 --no-progress $GITHUB_WORKSPACE/download 2>&1 | tee cowtransfer.log
+           echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
+           echo "::set-output name=url::$(cat cowtransfer.log | grep https | cut -f3 -d" ")"
+

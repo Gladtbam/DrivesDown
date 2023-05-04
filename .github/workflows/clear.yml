@@ -1,0 +1,23 @@
+
+name: Clear History
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - name: Run the Task
+        run: |
+          git config --global user.name "Clear Bot"
+          git config --global user.email "clearbot@email.com"
+          git checkout --orphan latest_branch
+          git add -A
+          git commit -am "Clear History"
+          git branch -D master
+          git branch -m master
+          git push -f origin master

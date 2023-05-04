@@ -1,0 +1,40 @@
+
+name: tran
+
+on:
+  workflow_dispatch:
+
+jobs:
+  UPLOAD:
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - uses: actions/checkout@main
+      - name: Set Rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+          echo "${{ secrets.RCLONE_CONF }}" > rclone.conf
+          echo "${{ secrets.SA }}" > sa.json
+          mkdir -p /home/runner/.config/rclone/
+          chmod 755 /home/runner/.config/rclone/
+          mv $GITHUB_WORKSPACE/rclone.conf $GITHUB_WORKSPACE/sa.json /home/runner/.config/rclone/
+      - name: tran
+        run: |
+          #rclone copy -v --drive-stop-on-upload-limit --onedrive-chunk-size 250M nice:/ sharedrive:/OneDrive/nice &
+          #rclone copy -v --drive-stop-on-upload-limit --onedrive-chunk-size 250M video:/ sharedrive:/OneDrive/video &
+          rclone copy -v --drive-stop-on-upload-limit --exclude "*.{sh,torrent,aria2,mp4}" --onedrive-chunk-size 250M auto:/ sharedrive:/OneDrive/auto --transfers 16 --checkers 16
+      - name: Config Secret
+        id: secret
+        run: |
+          #echo "delimiter=$(echo $RANDOM)" >> $GITHUB_ENV
+          sed -i 's/\"/\\\"/g' /home/runner/.config/rclone/rclone.conf
+          echo 'RCLONE_CONFIG<<EOF' >> $GITHUB_ENV
+          cat /home/runner/.config/rclone/rclone.conf >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
+      - name: Update Secret
+        uses: gliech/create-github-secret-action@v1.4.10
+        with:
+          name: RCLONE_CONF
+          value: ${{ env.RCLONE_CONFIG }}
+          pa_token: ${{ secrets.PA_TOKEN }}

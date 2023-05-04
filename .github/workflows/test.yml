@@ -1,0 +1,48 @@
+name: TEST
+
+on:
+  workflow_dispatch:
+
+env:
+  SSH_ACTIONS: true
+
+jobs:
+  UPLOAD:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@main
+      - name: Set Rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+          echo "${{ secrets.RCLONE_CONF }}" > rclone.conf
+          mkdir -p /home/runner/.config/rclone/
+          chmod 777 /home/runner/.config/rclone/
+          mv $GITHUB_WORKSPACE/rclone.conf /home/runner/.config/rclone/
+      - name: Install Aria2
+        run: |
+          sudo chmod a+x aria2.sh
+          sudo ./aria2.sh
+          sudo chown runner:docker -R /home/runner/.aria2/ && chmod 755 -R /home/runner/.aria2/
+          sudo chown runner:docker /home/runner/work/DrivesDown/DrivesDown/download/ && chmod 755 /home/runner/work/DrivesDown/DrivesDown/download/
+          sudo service aria2 restart
+      - name: SSH connection to Actions
+        if: env.SSH_ACTIONS == 'true'
+        uses: P3TERX/ssh2actions@main
+        with:
+          mode: ngrok
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+          NGROK_REGION: ap
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Config secret
+        id: secret
+        run: |
+          #sed -i 's/\"/\\"/g' /home/runner/.config/rclone/rclone.conf
+          echo "delimiter=$(echo $RANDOM)" >> $GITHUB_ENV
+          echo 'RCLONE_CONFIG<<${{ env.delimiter }}' >> $GITHUB_ENV
+          cat /home/runner/.config/rclone/rclone.conf >> $GITHUB_ENV
+          echo '${{ env.delimiter }}' >> $GITHUB_ENV
