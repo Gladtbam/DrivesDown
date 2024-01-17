@@ -21,8 +21,6 @@ jobs:
           mv $GITHUB_WORKSPACE/rclone.conf $GITHUB_WORKSPACE/sa.json /home/runner/.config/rclone/
       - name: tran
         run: |
-          #rclone copy -v --drive-stop-on-upload-limit --onedrive-chunk-size 250M nice:/ sharedrive:/OneDrive/nice &
-          #rclone copy -v --drive-stop-on-upload-limit --onedrive-chunk-size 250M video:/ sharedrive:/OneDrive/video &
           rclone copy -v --drive-stop-on-upload-limit --exclude "*.{sh,torrent,aria2,mp4}" --onedrive-chunk-size 250M auto:/ sharedrive:/OneDrive/auto --transfers 16 --checkers 16
       - name: Config Secret
         id: secret
