@@ -1,5 +1,5 @@
 
-name: tran
+name: Sync
 
 on:
   workflow_dispatch:
@@ -19,9 +19,9 @@ jobs:
           mkdir -p /home/runner/.config/rclone/
           chmod 755 /home/runner/.config/rclone/
           mv $GITHUB_WORKSPACE/rclone.conf $GITHUB_WORKSPACE/sa.json /home/runner/.config/rclone/
-      - name: tran
+      - name: Sync
         run: |
-          rclone copy -v --drive-stop-on-upload-limit --exclude "*.{sh,torrent,aria2,mp4}" --onedrive-chunk-size 250M auto:/ sharedrive:/OneDrive/auto --transfers 16 --checkers 16
+          rclone copy -P --user-agent "ISV|rclone.org|rclone/v1.65.1" --server-side-across-configs ed1:/ team2:/
       - name: Config Secret
         id: secret
         run: |
